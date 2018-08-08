@@ -1,0 +1,38 @@
+---
+title: "ReadMortalityData"
+author: "Alan Jackson"
+date: "August 6, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(purrr)
+
+options(stringsAsFactors = FALSE)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Read in the data
+
+```{r read data}
+folder="/home/ajackson/Dropbox/Rprojects/MortalityData/Data/"
+filename_beg <- "IHME_USA_COUNTY_MORTALITY_RATES_1980_2014_"
+filename_end <- "_Y2017M05D19.CSV"
+
+files <- state.name %>%
+  str_to_upper() %>%  
+  str_replace(" ","_") %>%
+  paste0(folder, filename_beg,.,filename_end) %>%
+  data_frame(state=state.name, fname=.)
+
+states <- head(state.name,3)
+
+df <- files %>%
+  mutate(content=map(fname, ~ read_csv(.))) %>%
+  unnest() %>%
+  select(-fname)
+
+```
+
