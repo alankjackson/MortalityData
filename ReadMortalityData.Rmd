@@ -8,6 +8,8 @@ output: html_document
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(purrr)
+library(lubridate)
+library(AnomalyDetection)
 
 options(stringsAsFactors = FALSE)
 
@@ -27,12 +29,52 @@ files <- state.name %>%
   paste0(folder, filename_beg,.,filename_end) %>%
   data_frame(state=state.name, fname=.)
 
-states <- head(state.name,3)
-
 df <- files %>%
-  mutate(content=map(fname, ~ read_csv(.))) %>%
+  mutate(content=map(fname, ~ read_csv(.x))) %>%
   unnest() %>%
   select(-fname)
 
 ```
+
+##  Pull out self-harm and interpersonal violence
+
+Gun violence will live in these numbers. Compare to time series of nearby shootings.
+
+Look for anomalous changes
+
+```{r anomalous violence}
+
+library(AnomalyDetection)
+
+dfviol <- df %>%
+  filter(state != location_name) %>% # remove state averages to leave counties
+  filter(cause_id==717) %>% # "Self-harm and interpersonal violence"
+  filter(sex=="Male") %>% # only look at males
+  select(state, location_id, location_name, year_id, mx) %>% # drop unneeded variables
+  mutate(year_id=dmy(paste0("1-1-", as.character(year_id)))) # turn year into date
+
+dft <- dfviol %>%
+  group_by(location_id, state) %>%
+  mutate(stddev = sd(mx), rng=max(mx)-min(mx)) %>%
+  summarise(stddev=mean(stddev), rng=first(rng), county=first(location_name)) 
+  
+dft %>%
+  arrange(desc(stddev)) %>%
+  head(10) 
+  
+dft %>%
+  arrange(desc(rng)) %>%
+  head(10) 
+
+dftest %>%
+  ggplot(aes(x=year_id, y=mx)) +
+  geom_line() +
+  geom_point()
+
+res <- AnomalyDetectionTs(dftest, direction="pos", plot=TRUE)
+
+res$plot
+
+```
+
 
