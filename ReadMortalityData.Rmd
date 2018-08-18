@@ -50,31 +50,29 @@ dfviol <- df %>%
   filter(state != location_name) %>% # remove state averages to leave counties
   filter(cause_id==717) %>% # "Self-harm and interpersonal violence"
   filter(sex=="Male") %>% # only look at males
-  select(state, location_id, location_name, year_id, mx) %>% # drop unneeded variables
+  select(state, location_name, year_id, mx) %>% # drop unneeded variables
   mutate(year_id=dmy(paste0("1-1-", as.character(year_id)))) # turn year into date
 
+#dft <- dfviol %>%
+#  group_by(state, location_name) %>%
+#  mutate(stddev = sd(mx), rng=max(mx)-min(mx)) %>%
+#  summarise(stddev=first(stddev), rng=first(rng), county=first(location_name)) 
+
 dft <- dfviol %>%
-  group_by(location_id, state) %>%
-  mutate(stddev = sd(mx), rng=max(mx)-min(mx)) %>%
-  summarise(stddev=mean(stddev), rng=first(rng), county=first(location_name)) 
-  
-dft %>%
-  arrange(desc(stddev)) %>%
-  head(10) 
-  
-dft %>%
+  group_by(location_name, state) %>%
+  nest() %>%
+  mutate(stddev=unlist(map(data, ~sd(.x$mx))),
+         rng=unlist(map(data, ~(max(.x$mx) - min(.x$mx)))) ) %>%
+  select(location_name, state, stddev, rng, data) %>%
   arrange(desc(rng)) %>%
-  head(10) 
-
-dftest %>%
-  ggplot(aes(x=year_id, y=mx)) +
-  geom_line() +
-  geom_point()
-
-res <- AnomalyDetectionTs(dftest, direction="pos", plot=TRUE)
-
-res$plot
-
+  head(10) %>%
+  unnest(data) 
+  
+dft %>%
+  ggplot(mapping=aes(x=year_id, y=mx)) +
+  geom_line(aes(color=location_name)) 
+  
+  
 ```
 
 
