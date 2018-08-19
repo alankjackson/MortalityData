@@ -10,6 +10,7 @@ library(tidyverse)
 library(purrr)
 library(lubridate)
 library(AnomalyDetection)
+library(broom)
 
 options(stringsAsFactors = FALSE)
 
@@ -62,15 +63,29 @@ dft <- dfviol %>%
   group_by(location_name, state) %>%
   nest() %>%
   mutate(stddev=unlist(map(data, ~sd(.x$mx))),
-         rng=unlist(map(data, ~(max(.x$mx) - min(.x$mx)))) ) %>%
-  select(location_name, state, stddev, rng, data) %>%
-  arrange(desc(rng)) %>%
-  head(10) %>%
-  unnest(data) 
-  
+         rng=unlist(map(data, ~(max(.x$mx) - min(.x$mx)))), 
+         pctrng=rng/unlist(map(data, ~(mean(.x$mx)))) ) %>%
+  mutate(
+    model = map(data,
+                ~lm(mx~year_id,
+                    data = .x)),
+    r_squared = map_dbl(model,
+                        ~pluck(glance(.x),
+                               "r.squared"))
+  ) %>%
+  select(location_name, state, stddev, rng, r_squared, pctrng, model, data)
+
 dft %>%
+  arrange(r_squared) %>%
+  head(10) %>%
+  mutate(loc=paste0(state,"_",location_name)) %>%
+  unnest(data) %>% 
   ggplot(mapping=aes(x=year_id, y=mx)) +
-  geom_line(aes(color=location_name)) 
+  geom_line(aes(color=loc)) +
+  labs(x="Year", 
+       y="Self-harm and interpersonal violence mortality rate",
+       color="County",
+       title="Top 10 Counties for R-Squared Statistical Fit")
   
   
 ```
